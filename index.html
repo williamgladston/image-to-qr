@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Image to QR</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 20px; }
+    video, canvas { width: 100%; max-width: 300px; margin: 10px auto; display: block; }
+    #qrcode { margin-top: 20px; }
+  </style>
+</head>
+<body>
+
+  <h2>📷 Take Photo & Get QR</h2>
+
+  <video id="camera" autoplay></video>
+  <button onclick="capture()">📸 Capture Photo</button>
+  <canvas id="snapshot" style="display:none;"></canvas>
+  <p id="status">Waiting for capture...</p>
+
+  <div id="qrcode"></div>
+
+  <!-- QR Code Generator Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <script>
+    const video = document.getElementById('camera');
+    const canvas = document.getElementById('snapshot');
+    const status = document.getElementById('status');
+    
+    // 1. Start camera
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+      });
+
+    // 2. Capture image
+    function capture() {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      const imageData = canvas.toDataURL('image/jpeg');
+
+      uploadToCloudinary(imageData);
+    }
+
+    // 3. Upload image
+    function uploadToCloudinary(imageData) {
+      status.innerText = 'Uploading...';
+      fetch('https://api.cloudinary.com/v1_1/dehvsfues/image/upload', {
+        method: 'POST',
+        body: JSON.stringify({
+          file: imageData,
+          upload_preset: 'ml_default'
+        }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        const imageUrl = data.secure_url;
+        status.innerText = 'Image uploaded! Generating QR...';
+        generateQR(imageUrl);
+      })
+      .catch(err => {
+        status.innerText = 'Upload failed 😢';
+        console.error(err);
+      });
+    }
+
+    // 4. Generate QR code
+    function generateQR(url) {
+      document.getElementById('qrcode').innerHTML = '';
+      new QRCode(document.getElementById('qrcode'), {
+        text: url,
+        width: 200,
+        height: 200
+      });
+      status.innerText = '✅ QR Ready! Scan or Share';
+    }
+  </script>
+</body>
+</html>
